@@ -1,7 +1,7 @@
 {
-  "name": "blook-network",
-  "version": "1.0.0",
-  "description": "Multiplayer Blook Game",
+  "name": "blook-labs-deluxe",
+  "version": "2.0.0",
+  "description": "Premium Multiplayer Blook Collection Simulator",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
