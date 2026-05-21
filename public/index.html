@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Blook Network Edition</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        @import url('https://googleapis.com');
+        * { box-sizing: border-box; font-family: 'Nunito', sans-serif; margin: 0; padding: 0; }
+        body { display: flex; background: #0b001a; color: white; height: 100vh; overflow: hidden; }
+        
+        #auth-screen { position: fixed; inset: 0; background: radial-gradient(#250040, #05000d); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 15px; }
+        .panel { background: rgba(255,255,255,0.05); padding: 30px; border-radius: 20px; width: 340px; display: flex; flex-direction: column; gap: 10px; border: 1px solid rgba(255,255,255,0.1); }
+        
+        input, select, button { padding: 14px; border-radius: 12px; border: none; font-size: 16px; font-weight: bold; width: 100%; text-align: center; }
+        input, select { background: rgba(255,255,255,0.08); color: white; outline: none; }
+        button { background: linear-gradient(135deg, #ff007f, #7700cc); color: white; cursor: pointer; }
+
+        #sidebar { width: 260px; background: rgba(255,255,255,0.02); padding: 20px; display: none; flex-direction: column; gap: 10px; border-right: 1px solid rgba(255,255,255,0.05); }
+        #main { flex: 1; padding: 30px; display: none; overflow-y: auto; }
+        .window { display: none; height: 100%; }
+        .active { display: block; }
+
+        .grid { display: flex; gap: 15px; flex-wrap: wrap; margin-top: 15px; }
+        .card { background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 15px; text-align: center; width: 140px; }
+        
+        #chat-box { height: 70%; background: rgba(0,0,0,0.3); border-radius: 12px; padding: 15px; overflow-y: auto; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05); }
+        .chat-row { margin-bottom: 8px; font-size: 15px; }
+        .admin { color: #ff0055; font-weight: 900; }
+        .mod { color: #00bfff; font-weight: 900; }
+        
+        .trade-row { display: flex; justify-content: space-between; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 10px; margin-bottom: 8px; align-items: center; }
+        #admin-panel { border: 2px dashed #ff0055; padding: 15px; border-radius: 15px; margin-top: 20px; display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-screen">
+        <h1 style="font-family:'Fredoka One'; color:#ffcc00; font-size:40px;">BLOOK NET</h1>
+        <div class="panel">
+            <input type="text" id="user-in" placeholder="Username">
+            <input type="password" id="pass-in" placeholder="Password">
+            <button onclick="auth('login')">Sign In</button>
+            <button onclick="auth('signup')" style="background:#00cc66;">Register</button>
+        </div>
+    </div>
+
+    <div id="sidebar">
+        <h2 id="display-name" style="color:#ffcc00;">User</h2>
+        <div style="font-size:20px; margin: 10px 0;">🪙 <span id="display-coins">0</span></div>
+        <button onclick="switchView('inventory')">🎒 Collection</button>
+        <button onclick="switchView('chat')">💬 Live Chat</button>
+        <button onclick="switchView('trading')">🤝 Trading Board</button>
+    </div>
+
+    <div id="main">
+        <div id="inventory" class="window active">
+            <h1>My Collection</h1>
+            <div class="grid" id="inv-grid"></div>
+        </div>
+
+        <div id="chat" class="window">
+            <h1>Global Live Lobby Chat</h1>
+            <div id="chat-box"></div>
+            <div style="display:flex; gap:10px;">
+                <input type="text" id="chat-msg" placeholder="Type a message to the world...">
+                <button onclick="sendChat()" style="width:120px;">Send</button>
+            </div>
+        </div>
+
+        <div id="trading" class="window">
+            <h1>Global Trading System</h1>
+            <div style="display:flex; gap:10px; margin: 15px 0;">
+                <input type="text" id="trade-item-in" placeholder="Enter Blook name to drop on board...">
+                <button onclick="postTrade()" style="width:180px;">Post Offer</button>
+            </div>
+            <div id="trade-board"></div>
+        </div>
+
+        <div id="admin-panel">
+            <h3 style="color:#ff0055; margin-bottom:10px;">👑 Rank & Asset Promotion Console</h3>
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                <input type="text" id="adm-target" placeholder="Player Name">
+                <select id="adm-role"><option value="admin">Admin</option><option value="mod">Moderator</option><option value="user">User</option></select>
+                <button onclick="submitAdmin(true)">Apply Rank</button>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <input type="text" id="adm-blook" placeholder="Blook Name">
+                <input type="number" id="adm-coins" placeholder="Coins">
+                <button onclick="submitAdmin(false)">Inject Assets</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let clientUser = null;
+
+        function auth(action) {
+            const username = document.getElementById('user-in').value;
+            const password = document.getElementById('pass-in').value;
+            if(username && password) socket.emit('auth', { username, password, action });
+        }
+
+        socket.on('auth_res', (res) => {
+            if(!res.success) return alert(res.msg);
+            clientUser = res.user;
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('sidebar').style.display = 'flex';
+            document.getElementById('main').style.display = 'block';
+            syncUI();
+        });
+
+        socket.on('force_sync', (freshUser) => { clientUser = freshUser; syncUI(); });
+
+        function syncUI() {
+            let tag = clientUser.username;
+            if(clientUser.rank === 'admin') tag += ' <span class="admin">[ADMIN]</span>';
+            if(clientUser.rank === 'mod') tag += ' <span class="mod">[MOD]</span>';
+            
+            document.getElementById('display-name').innerHTML = tag;
+            document.getElementById('display-coins').innerText = clientUser.coins;
+            
+            const grid = document.getElementById('inv-grid');
+            grid.innerHTML = '';
+            clientUser.blooks.forEach(b => {
+                grid.innerHTML += `<div class="card"><div style="font-size:35px;">📦</div><div>${b}</div></div>`;
+            });
+
+            document.getElementById('admin-panel').style.display = (clientUser.rank === 'admin' || clientUser.rank === 'mod') ? 'block' : 'none';
+        }
+
+        function switchView(id) {
+            document.querySelectorAll('.window').forEach(w => w.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        function sendChat() {
+            const msg = document.getElementById('chat-msg').value;
+            if(msg.trim()) { socket.emit('send_chat', msg); document.getElementById('chat-msg').value = ''; }
+        }
+
+        socket.on('receive_chat', (data) => {
+            const box = document.getElementById('chat-box');
+            let badge = data.rank !== 'user' ? `<span class="${data.rank}">[${data.rank.toUpperCase()}]</span> ` : '';
+            box.innerHTML += `<div class="chat-row"><b>${badge}${data.username}:</b> ${data.text}</div>`;
+            box.scrollTop = box.scrollHeight;
+        });
+
+        socket.on('sys_msg', (txt) => {
+            document.getElementById('chat-box').innerHTML += `<div class="chat-row" style="color:#00cc66;"><i>${txt}</i></div>`;
+        });
+
+        function postTrade() {
+            const item = document.getElementById('trade-item-in').value;
+            if(clientUser.blooks.includes(item)) {
+                socket.emit('post_trade', item);
+                document.getElementById('trade-item-in').value = '';
+            } else { alert("You don't own that Blook!"); }
+        }
+
+        socket.on('sync_trades', (list) => {
+            const board = document.getElementById('trade-board');
+            board.innerHTML = '';
+            list.forEach(t => {
+                board.innerHTML += `
+                    <div class="trade-row">
+                        <span><b>${t.sender}</b> is putting up a 📦 <b>${t.item}</b></span>
+                        <button style="width:100px; padding:8px;" onclick="socket.emit('claim_trade', '${t.id}')">Claim</button>
+                    </div>`;
+            });
+        });
+
+        function submitAdmin(isRole) {
+            socket.emit('admin_action', {
+                target: document.getElementById('adm-target').value,
+                role: isRole ? document.getElementById('adm-role').value : null,
+                blook: !isRole ? document.getElementById('adm-blook').value : null,
+                coins: !isRole ? document.getElementById('adm-coins').value : null
+            });
+        }
+    </script>
+</body>
+</html>
