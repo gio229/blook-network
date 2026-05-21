@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Blook Network Edition</title>
+    <title>Blook Network Deluxe Edition</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         @import url('https://googleapis.com');
@@ -22,7 +22,13 @@
         .active { display: block; }
 
         .grid { display: flex; gap: 15px; flex-wrap: wrap; margin-top: 15px; }
-        .card { background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 15px; text-align: center; width: 140px; }
+        
+        /* 9 Pack Market Cards layout configuration styling indicators */
+        .pack-card { background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.01) 100%); border: 1px solid rgba(255,255,255,0.1); border-radius: 18px; padding: 20px; width: 210px; text-align: center; cursor: pointer; }
+        .pack-card:hover { transform: translateY(-5px); border-color: #ffcc00; }
+        .rates-box { font-size: 11px; color: #b399ff; text-align: left; margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 5px; }
+
+        .blook-card { background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 15px; text-align: center; width: 140px; }
         
         #chat-box { height: 70%; background: rgba(0,0,0,0.3); border-radius: 12px; padding: 15px; overflow-y: auto; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05); }
         .chat-row { margin-bottom: 8px; font-size: 15px; }
@@ -48,13 +54,21 @@
     <div id="sidebar">
         <h2 id="display-name" style="color:#ffcc00;">User</h2>
         <div style="font-size:20px; margin: 10px 0;">🪙 <span id="display-coins">0</span></div>
+        <button onclick="switchView('market')">🛒 Market Packs</button>
         <button onclick="switchView('inventory')">🎒 Collection</button>
         <button onclick="switchView('chat')">💬 Live Chat</button>
         <button onclick="switchView('trading')">🤝 Trading Board</button>
     </div>
 
     <div id="main">
-        <div id="inventory" class="window active">
+        <!-- Upgraded 9 Pack Market Window Frame -->
+        <div id="market" class="window active">
+            <h1>The Blook Market</h1>
+            <p style="color:#b399ff; margin-bottom:15px;">Exchange tokens for mystery crates</p>
+            <div class="grid" id="market-grid"></div>
+        </div>
+
+        <div id="inventory" class="window">
             <h1>My Collection</h1>
             <div class="grid" id="inv-grid"></div>
         </div>
@@ -71,7 +85,7 @@
         <div id="trading" class="window">
             <h1>Global Trading System</h1>
             <div style="display:flex; gap:10px; margin: 15px 0;">
-                <input type="text" id="trade-item-in" placeholder="Enter Blook name to drop on board...">
+                <input type="text" id="trade-item-in" placeholder="Enter Blook name to swap...">
                 <button onclick="postTrade()" style="width:180px;">Post Offer</button>
             </div>
             <div id="trade-board"></div>
@@ -96,6 +110,19 @@
         const socket = io();
         let clientUser = null;
 
+        // Visual layout rates matching database drops
+        const RATES_MAP = {
+            'Knight': '50%', 'Queen': '25%', 'King': '15%', 'Wizard': '8%', 'Dragon': '2%',
+            'Meteor': '50%', 'Astronaut': '30%', 'Alien': '15%', 'Star': '5%',
+            'Ninja': '60%', 'Samurai': '30%', 'Titan': '10%',
+            'Hacker Cat': '40%', 'Cyborg': '30%', 'AI Matrix': '20%', 'Cyber Core': '10%',
+            'Monkey': '40%', 'Zebra': '30%', 'Lion': '20%', 'Elephant': '10%',
+            'Goldfish': '50%', 'Shark': '40%', 'Kraken': '10%',
+            'Raptor': '50%', 'T-Rex': '40%', 'Ankylosaurus': '10%',
+            'Snowman': '50%', 'Yeti': '40%', 'Frost King': '10%',
+            'Rainbow Slime': '40%', 'Neon Cat': '40%', 'Void Overlord': '20%'
+        };
+
         function auth(action) {
             const username = document.getElementById('user-in').value;
             const password = document.getElementById('pass-in').value;
@@ -108,10 +135,31 @@
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('sidebar').style.display = 'flex';
             document.getElementById('main').style.display = 'block';
+            
+            buildMarketGrid(res.packs);
             syncUI();
         });
 
         socket.on('force_sync', (freshUser) => { clientUser = freshUser; syncUI(); });
+
+        function buildMarketGrid(packs) {
+            const grid = document.getElementById('market-grid');
+            grid.innerHTML = '';
+            for(let key in packs) {
+                let listHTML = '';
+                packs[key].blooks.forEach(b => {
+                    listHTML += `<div>• ${b} (${RATES_MAP[b] || '10%'})</div>`;
+                });
+
+                grid.innerHTML += `
+                    <div class="pack-card" onclick="socket.emit('buy_pack', '${key}')">
+                        <div style="font-size:40px; margin-bottom:5px;">${packs[key].emoji}</div>
+                        <h3>${key}</h3>
+                        <p style="color:#ffd700;">🪙 ${packs[key].cost}</p>
+                        <div class="rates-box">${listHTML}</div>
+                    </div>`;
+            }
+        }
 
         function syncUI() {
             let tag = clientUser.username;
@@ -124,7 +172,7 @@
             const grid = document.getElementById('inv-grid');
             grid.innerHTML = '';
             clientUser.blooks.forEach(b => {
-                grid.innerHTML += `<div class="card"><div style="font-size:35px;">📦</div><div>${b}</div></div>`;
+                grid.innerHTML += `<div class="blook-card"><div style="font-size:35px;">📦</div><div>${b}</div></div>`;
             });
 
             document.getElementById('admin-panel').style.display = (clientUser.rank === 'admin' || clientUser.rank === 'mod') ? 'block' : 'none';
@@ -165,7 +213,7 @@
             list.forEach(t => {
                 board.innerHTML += `
                     <div class="trade-row">
-                        <span><b>${t.sender}</b> is putting up a 📦 <b>${t.item}</b></span>
+                        <span><b>${t.sender}</b> is offering a 📦 <b>${t.item}</b></span>
                         <button style="width:100px; padding:8px;" onclick="socket.emit('claim_trade', '${t.id}')">Claim</button>
                     </div>`;
             });
