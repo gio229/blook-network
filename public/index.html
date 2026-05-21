@@ -5,446 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blook Labs Deluxe - Master Platform</title>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    <style>
-        * { 
-            box-sizing: border-box; 
-            font-family: 'Nunito', sans-serif; 
-            margin: 0; 
-            padding: 0; 
-            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-        }
-        h1, h2, h3, .brand { 
-            font-family: 'Fredoka One', cursive; 
-            letter-spacing: 0.5px; 
-        }
-        
-        body { 
-            display: flex; 
-            background: radial-gradient(circle at center, #1b003a 0%, #060012 100%); 
-            color: #ffffff; 
-            height: 100vh; 
-            overflow: hidden; 
-        }
-
-        /* Sidebar Navigation Layout Panel */
-        #sidebar { 
-            width: 280px; 
-            background: rgba(255, 255, 255, 0.02); 
-            backdrop-filter: blur(20px); 
-            border-right: 1px solid rgba(255, 255, 255, 0.06); 
-            display: flex; 
-            flex-direction: column; 
-            padding: 20px; 
-            gap: 15px; 
-            overflow-y: auto; 
-        }
-        #sidebar h2 { 
-            text-align: center; 
-            color: #ffcc00; 
-            font-size: 24px; 
-            text-shadow: 0 4px 10px rgba(255, 204, 0, 0.2); 
-            margin-bottom: 5px; 
-        }
-        .coin-widget { 
-            background: linear-gradient(135deg, #ffd700 0%, #ff8800 100%); 
-            padding: 14px; 
-            border-radius: 16px; 
-            text-align: center; 
-            font-weight: 900; 
-            font-size: 20px; 
-            color: #3a0066; 
-            box-shadow: 0 4px 15px rgba(255, 200, 0, 0.3); 
-        }
-        .nav-btn { 
-            background: rgba(255, 255, 255, 0.04); 
-            color: #e0ccff; 
-            border: 1px solid rgba(255, 255, 255, 0.02); 
-            padding: 14px 20px; 
-            border-radius: 14px; 
-            cursor: pointer; 
-            text-align: left; 
-            font-weight: 700; 
-        }
-        .nav-btn:hover { 
-            background: #7700cc; 
-            color: white; 
-            transform: translateX(5px); 
-            box-shadow: 0 5px 15px rgba(119, 0, 204, 0.3); 
-        }
-        .nav-btn.active-btn { 
-            background: #ff007f; 
-            color: white; 
-            border-color: #ff007f; 
-            box-shadow: 0 5px 15px rgba(255, 0, 127, 0.4); 
-        }
-        .logout-btn { 
-            background: rgba(255, 50, 50, 0.1); 
-            border: 1px solid rgba(255, 50, 50, 0.15); 
-            color: #ff5555; 
-            margin-top: auto; 
-            font-weight: bold; 
-        }
-        .logout-btn:hover { 
-            background: #ff3333; 
-            color: white; 
-        }
-
-        /* Window App Frame Canvas Spaces */
-        #main-content { 
-            flex: 1; 
-            padding: 40px; 
-            overflow-y: auto; 
-            display: none; 
-            position: relative; 
-        }
-        .window { 
-            display: none; 
-            background: rgba(255, 255, 255, 0.03); 
-            backdrop-filter: blur(30px); 
-            padding: 35px; 
-            border-radius: 24px; 
-            border: 1px solid rgba(255, 255, 255, 0.07); 
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3); 
-        }
-        .window.active { 
-            display: block; 
-            animation: windowIn 0.3s ease-out; 
-        }
-        @keyframes windowIn { 
-            from { opacity: 0; transform: translateY(12px); } 
-            to { opacity: 1; transform: translateY(0); } 
-        }
-
-        /* Authentication Layout Panels */
-        #auth-screen { 
-            position: fixed; 
-            inset: 0; 
-            background: radial-gradient(circle at center, #2a004d 0%, #05000f 100%); 
-            z-index: 1000; 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: center; 
-            align-items: center; 
-            gap: 20px; 
-            backdrop-filter: blur(10px); 
-        }
-        #auth-screen h1 { 
-            font-size: 52px; 
-            color: #ffcc00; 
-            text-shadow: 0 8px 25px rgba(255, 204, 0, 0.35); 
-        }
-        .auth-container { 
-            background: rgba(255, 255, 255, 0.04); 
-            padding: 35px; 
-            border-radius: 24px; 
-            border: 1px solid rgba(255,255,255,0.08); 
-            display: flex; 
-            flex-direction: column; 
-            gap: 12px; 
-            width: 360px; 
-        }
-        
-        input, select { 
-            padding: 14px 20px; 
-            border-radius: 12px; 
-            border: 2px solid rgba(255, 255, 255, 0.08); 
-            background: rgba(255, 255, 255, 0.05); 
-            color: white; 
-            font-size: 16px; 
-            font-weight: 700; 
-            outline: none; 
-        }
-        input::placeholder { 
-            color: rgba(255, 255, 255, 0.5); 
-        }
-        input:focus { 
-            border-color: #ff007f; 
-            box-shadow: 0 0 15px rgba(255, 0, 127, 0.25); 
-        }
-        .btn-play { 
-            background: linear-gradient(135deg, #ff007f 0%, #7700cc 100%); 
-            color: white; 
-            border: none; 
-            font-weight: 900; 
-            font-family: 'Fredoka One', cursive; 
-            padding: 14px 20px; 
-            border-radius: 12px; 
-            cursor: pointer; 
-            font-size: 16px; 
-        }
-        .btn-play:hover { 
-            transform: scale(1.03); 
-            box-shadow: 0 8px 25px rgba(255, 0, 127, 0.5); 
-        }
-
-        /* Grids & Cards Components */
-        .card-grid { 
-            display: flex; 
-            gap: 20px; 
-            flex-wrap: wrap; 
-            margin-top: 25px; 
-            padding-bottom: 25px; 
-        }
-        
-        .pack-card { 
-            background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.01) 100%); 
-            border: 1px solid rgba(255, 255, 255, 0.08); 
-            padding: 20px; 
-            border-radius: 20px; 
-            text-align: center; 
-            cursor: pointer; 
-            position: relative; 
-            width: 200px; 
-        }
-        .pack-card:hover { 
-            transform: translateY(-6px); 
-            border-color: #ffcc00; 
-            box-shadow: 0 10px 20px rgba(255,204,0,0.12); 
-        }
-        .rates-list { 
-            margin-top: 12px; 
-            border-top: 1px dashed rgba(255,255,255,0.1); 
-            padding-top: 8px; 
-            text-align: left; 
-            font-size: 11px; 
-            color: #b399ff; 
-            line-height: 1.4; 
-        }
-        .rate-row { 
-            display: flex; 
-            justify-content: space-between; 
-        }
-
-        .blook-card { 
-            background: rgba(255, 255, 255, 0.04); 
-            border: 2px solid rgba(255, 255, 255, 0.08); 
-            padding: 18px; 
-            border-radius: 18px; 
-            text-align: center; 
-            width: 145px; 
-            position: relative; 
-            cursor: pointer; 
-        }
-        .blook-card:hover { 
-            transform: scale(1.04); 
-        }
-        .blook-avatar { 
-            font-size: 48px; 
-            margin-bottom: 8px; 
-            filter: drop-shadow(0 6px 8px rgba(0,0,0,0.3)); 
-        }
-        .blook-count { 
-            position: absolute; 
-            top: -8px; 
-            right: -8px; 
-            background: #ff007f; 
-            color: white; 
-            font-size: 11px; 
-            font-weight: 900; 
-            padding: 2px 7px; 
-            border-radius: 10px; 
-            border: 2px solid #150033; 
-        }
-        
-        /* Rarity Badges */
-        .rarity { 
-            font-size: 10px; 
-            text-transform: uppercase; 
-            font-weight: 900; 
-            padding: 2px 7px; 
-            border-radius: 5px; 
-            margin-top: 5px; 
-            display: inline-block; 
-        }
-        .common { 
-            background: #5e5e5e; 
-            color: white; 
-        }
-        .rare { 
-            background: #00bcff; 
-            color: white; 
-        }
-        .epic { 
-            background: #a020f0; 
-            color: white; 
-        }
-        .legendary { 
-            background: #ffaa00; 
-            color: white; 
-            box-shadow: 0 0 10px rgba(255,170,0,0.3); 
-        }
-        .chroma { 
-            background: linear-gradient(90deg, #ff007f, #7700cc, #00bcff); 
-            color: white; 
-            animation: chromaCycle 2s infinite linear; 
-            box-shadow: 0 0 12px rgba(255,0,127,0.4); 
-        }
-        @keyframes chromaCycle { 
-            0% { filter: hue-rotate(0deg); } 
-            100% { filter: hue-rotate(360deg); } 
-        }
-
-        /* UNBOXING PRESENTATION GRAPHICS OVERLAY */
-        #unbox-overlay { 
-            position: fixed; 
-            inset: 0; 
-            background: rgba(10, 0, 22, 0.96); 
-            z-index: 5000; 
-            display: none; 
-            flex-direction: column; 
-            justify-content: center; 
-            align-items: center; 
-            backdrop-filter: blur(5px); 
-        }
-        .animated-pack { 
-            width: 180px; 
-            height: 245px; 
-            background: linear-gradient(135deg, #7700cc 0%, #3a0066 100%); 
-            border-radius: 18px; 
-            border: 4px solid #ffcc00; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            font-size: 100px; 
-            cursor: pointer; 
-        }
-        
-        .shake-loop { 
-            animation: shakeFrame 0.5s linear infinite; 
-        }
-        @keyframes shakeFrame { 
-            0%, 100% { transform: rotate(0deg) scale(1); } 
-            20% { transform: rotate(-6deg) scale(1.04); } 
-            40% { transform: rotate(6deg) scale(1.04); } 
-            60% { transform: rotate(-6deg) scale(1.04); } 
-            80% { transform: rotate(6deg) scale(1.04); } 
-        }
-        .burst-exit { 
-            animation: burstFrame 0.4s ease-out forwards; 
-        }
-        @keyframes burstFrame { 
-            0% { transform: scale(1); opacity: 1; filter: brightness(1); } 
-            50% { transform: scale(1.3); opacity: 0.8; filter: brightness(2.5); } 
-            100% { transform: scale(0); opacity: 0; } 
-        }
-
-        #reward-reveal-card { 
-            width: 230px; 
-            height: 310px; 
-            background: rgba(255, 255, 255, 0.05); 
-            border: 4px solid white; 
-            border-radius: 24px; 
-            display: none; 
-            flex-direction: column; 
-            justify-content: center; 
-            align-items: center; 
-            gap: 15px; 
-            animation: cardReveal 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55); 
-        }
-        @keyframes cardReveal { 
-            0% { transform: scale(0) rotate(-30deg); opacity: 0; } 
-            100% { transform: scale(1) rotate(0deg); opacity: 1; } 
-        }
-
-        /* Fusion Forge Chambers UI */
-        .forge-chamber { 
-            background: rgba(0,0,0,0.2); 
-            border: 2px dashed rgba(255,255,255,0.15); 
-            border-radius: 20px; 
-            padding: 30px; 
-            text-align: center; 
-            max-width: 500px; 
-            margin: 20px auto; 
-        }
-        .slot-row { 
-            display: flex; 
-            justify-content: center; 
-            gap: 15px; 
-            margin: 20px 0; 
-        }
-        .forge-slot { 
-            width: 90px; 
-            height: 110px; 
-            background: rgba(255,255,255,0.04); 
-            border: 2px solid rgba(255,255,255,0.08); 
-            border-radius: 14px; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            font-size: 40px; 
-        }
-
-        /* Auction Systems & Chat Layouts */
-        .market-split { 
-            display: flex; 
-            gap: 30px; 
-            margin-top: 20px; 
-            height: 72%; 
-        }
-        .market-list { 
-            flex: 1; 
-            background: rgba(0,0,0,0.25); 
-            border-radius: 16px; 
-            padding: 20px; 
-            overflow-y: auto; 
-            border: 1px solid rgba(255,255,255,0.05); 
-        }
-        .auction-item, .chat-line { 
-            background: rgba(255,255,255,0.03); 
-            border: 1px solid rgba(255,255,255,0.05); 
-            padding: 12px 16px; 
-            border-radius: 12px; 
-            margin-bottom: 10px; 
-            display: flex; 
-            justify-content: space-between; 
-        }
-        
-        #chat-window-box { 
-            height: 75%; 
-            background: rgba(0,0,0,0.3); 
-            border-radius: 16px; 
-            border: 1px solid rgba(255,255,255,0.06); 
-            padding: 20px; 
-            overflow-y: auto; 
-            margin-bottom: 15px; 
-        }
-        .chat-line { 
-            width: fit-content; 
-            max-width: 85%; 
-            display: block; 
-        }
-        .tag-staff { 
-            font-weight: 900; 
-            color: #ff0055; 
-            text-shadow: 0 0 8px rgba(255,0,85,0.4); 
-        }
-        .tag-mod { 
-            font-weight: 900; 
-            color: #00bfff; 
-        }
-
-        /* Master Controls Command Panel */
-        #admin-panel { 
-            border: 2px dashed #ff0055; 
-            background: rgba(255, 0, 85, 0.04); 
-            margin-top: 30px; 
-            padding: 22px; 
-            border-radius: 20px; 
-            display: none; 
-        }
-    </style>
 </head>
 <body>
-
     <!-- Cinematic Overlays Pack Reveal Canvas Module -->
     <div id="unbox-overlay">
-        <div id="pack-wrapper-node" class="animated-pack" onclick="executeBurstSequence()">🎁</div>
+        <div id="pack-wrapper-node" class="animated-pack">🎁</div>
         <div id="reward-reveal-card">
             <div id="reward-glyph" style="font-size:85px; filter:drop-shadow(0 10px 12px rgba(0,0,0,0.4));">💎</div>
             <div id="reward-title" style="font-size:24px; font-weight:900;">Blook Character</div>
             <div><span id="reward-tier-badge" class="rarity common">Common</span></div>
-            <button class="btn-play" style="margin-top:15px; padding:10px 20px; font-size:13px;" onclick="closeRevealOverlay()">COLLECT ASSET</button>
+            <button class="btn-play" style="margin-top:15px; padding:10px 20px; font-size:13px;" id="collect-btn">COLLECT ASSET</button>
         </div>
     </div>
 
@@ -453,10 +25,10 @@
         <h1 class="brand">BLOOK LABS V7 ONLINE</h1>
         <p style="color:#b399ff; font-weight:bold;">Live Multiplayer Simulation Suite Engine</p>
         <div class="auth-container">
-            <input type="text" id="user-in" placeholder="Account Username...">
-            <input type="password" id="pass-in" placeholder="Account Password...">
-            <button class="btn-play" onclick="executeAuth('login')">Log In Profile</button>
-            <button class="btn-play" onclick="executeAuth('signup')" style="background:#00cc66; box-shadow:0 4px 15px rgba(0,204,102,0.25);">Create New Account</button>
+            <input type="text" id="user-in" placeholder="Account Username..." aria-label="Username">
+            <input type="password" id="pass-in" placeholder="Account Password..." aria-label="Password">
+            <button class="btn-play" id="login-btn">Log In Profile</button>
+            <button class="btn-play" id="signup-btn" style="background:#00cc66; box-shadow:0 4px 15px rgba(0,204,102,0.25);">Create New Account</button>
         </div>
     </div>
 
@@ -464,13 +36,13 @@
     <div id="sidebar">
         <h2 id="sidebar-profile-tag">GIO 👑</h2>
         <div class="coin-widget">🪙 <span id="sidebar-coins-count">0</span></div>
-        <button class="nav-btn active-btn" id="btn-market" onclick="switchActiveView('market')">🛒 Market Store</button>
-        <button class="nav-btn" id="btn-collection" onclick="switchActiveView('collection')">🎒 My Collection</button>
-        <button class="nav-btn" id="btn-fusion" onclick="switchActiveView('fusion')">🧪 Fusion Chamber</button>
-        <button class="nav-btn" id="btn-auction" onclick="switchActiveView('auction')">⚖️ Black Auction</button>
-        <button class="nav-btn" id="btn-chat" onclick="switchActiveView('chat')">💬 Lobby Room Chat</button>
-        <button class="nav-btn" id="btn-wheel" onclick="switchActiveView('wheel')">🎡 Token Reward Wheel</button>
-        <button class="nav-btn logout-btn" onclick="terminateSession()">🚪 Disconnect Account</button>
+        <button class="nav-btn active-btn" id="btn-market" data-view="market">🛒 Market Store</button>
+        <button class="nav-btn" id="btn-collection" data-view="collection">🎒 My Collection</button>
+        <button class="nav-btn" id="btn-fusion" data-view="fusion">🧪 Fusion Chamber</button>
+        <button class="nav-btn" id="btn-auction" data-view="auction">⚖️ Black Auction</button>
+        <button class="nav-btn" id="btn-chat" data-view="chat">💬 Lobby Room Chat</button>
+        <button class="nav-btn" id="btn-wheel" data-view="wheel">🎡 Token Reward Wheel</button>
+        <button class="nav-btn logout-btn" id="logout-btn">🚪 Disconnect Account</button>
     </div>
 
     <!-- Core Working View Space Windows Frame -->
@@ -494,11 +66,11 @@
             <h1 style="color:#a020f0; font-size:32px; text-align:center;">Blook Fusion Laboratory</h1>
             <p style="color:#b399ff; text-align:center; margin-bottom:20px;">Merge 3 copies of any matching Blook item to forge a guaranteed higher rarity random replacement</p>
             <div class="forge-chamber">
-                <input type="text" id="forge-blook-input" placeholder="Enter Blook item title exactly...">
+                <input type="text" id="forge-blook-input" placeholder="Enter Blook item title exactly..." aria-label="Blook name">
                 <div class="slot-row">
                     <div class="forge-slot" id="slot-1">🔹</div><div class="forge-slot" id="slot-2">🔹</div><div class="forge-slot" id="slot-3">🔹</div>
                 </div>
-                <button class="btn-play" style="padding:15px 40px; font-size:18px;" onclick="attemptChamberMerge()">INITIATE FUSION FORGE</button>
+                <button class="btn-play" style="padding:15px 40px; font-size:18px;" id="merge-btn">INITIATE FUSION FORGE</button>
             </div>
         </div>
 
@@ -513,9 +85,9 @@
                 </div>
                 <div class="panel" style="width:300px; height:fit-content; background:rgba(0,0,0,0.2);">
                     <h3 style="font-size:18px;">Create Listing</h3>
-                    <input type="text" id="auc-blook-name" placeholder="Item Name">
-                    <input type="number" id="auc-token-price" placeholder="Buyout Tokens Cost">
-                    <button class="btn-play" onclick="postAuctionListing()">Publish Asset Offer</button>
+                    <input type="text" id="auc-blook-name" placeholder="Item Name" aria-label="Item name">
+                    <input type="number" id="auc-token-price" placeholder="Buyout Tokens Cost" aria-label="Token price">
+                    <button class="btn-play" id="post-auction-btn">Publish Asset Offer</button>
                 </div>
             </div>
         </div>
@@ -523,10 +95,10 @@
         <!-- Simulated Living Room Network Messaging Panel -->
         <div id="chat" class="window">
             <h1 style="color:#00cc66; font-size:32px; margin-bottom:5px;">Lobby Chat Network</h1>
-            <div id="chat-window-box"></div>
+            <div id="chat-window-box" role="log" aria-live="polite" aria-label="Chat messages"></div>
             <div style="display:flex; gap:12px;">
-                <input type="text" id="chat-entry-box" style="text-align:left;" placeholder="Type something to say to the community server...">
-                <button class="btn-play" style="width:140px;" onclick="sendChatMessage()">Send Msg</button>
+                <input type="text" id="chat-entry-box" style="text-align:left;" placeholder="Type something to say to the community server..." aria-label="Chat message">
+                <button class="btn-play" style="width:140px;" id="send-chat-btn">Send Msg</button>
             </div>
         </div>
 
@@ -535,269 +107,33 @@
             <h1 style="color:#ff8800; font-size:32px; margin-bottom:10px;">Hourly Cash Bonus Wheel</h1>
             <p style="color:#b399ff; margin-bottom:30px;">Spin completely free token payouts once every hour instantly</p>
             <div id="wheel-graphic-node" style="font-size:110px; margin-bottom:25px;">🎡</div>
-            <button class="btn-play" style="padding:18px 50px; font-size:20px;" onclick="executeWheelSpin()">SPIN WHEEL CONSOLE</button>
+            <button class="btn-play" style="padding:18px 50px; font-size:20px;" id="wheel-spin-btn">SPIN WHEEL CONSOLE</button>
         </div>
 
         <!-- Owner Controller Admin Command Suite Matrix Panel Display -->
         <div id="admin-panel">
             <h2 style="color:#ff0055; margin-bottom:12px;">👑 Owner Admin Command Console Panel</h2>
             <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-                <input type="text" id="adm-target-user" placeholder="Target Account Username" style="width:230px;">
-                <select id="adm-role-select" style="width:180px;">
+                <input type="text" id="adm-target-user" placeholder="Target Account Username" style="width:230px;" aria-label="Target username">
+                <select id="adm-role-select" style="width:180px;" aria-label="Admin role">
                     <option value="admin">Give Admin Crown Rank</option>
                     <option value="mod">Give Mod Star Rank</option>
                     <option value="user">Demote to Regular Player</option>
                 </select>
-                <button class="btn-play" onclick="executeAdminRankUpdate()" style="background:#ff0055;">Apply Level Change</button>
+                <button class="btn-play" id="admin-role-btn" style="background:#ff0055;">Apply Level Change</button>
             </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                <input type="text" id="adm-blook" placeholder="Gift Blook Item Name" style="width:230px;">
-                <input type="number" id="adm-coins" placeholder="Tokens Count" style="width:180px;">
-                <button class="btn-play" onclick="executeAdminAssetInjection()" style="background:#333;">Inject Custom Assets</button>
+                <input type="text" id="adm-blook" placeholder="Gift Blook Item Name" style="width:230px;" aria-label="Blook item">
+                <input type="number" id="adm-coins" placeholder="Tokens Count" style="width:180px;" aria-label="Token amount">
+                <button class="btn-play" id="admin-inject-btn" style="background:#333;">Inject Custom Assets</button>
             </div>
         </div>
     </div>
 
-    <script>
-        // Socket.IO Connection
-        const socket = io();
-        let currentUser = null;
-        let selectedPackToOpen = null;
-        let PACKS = {};
-        let BLOOK_DETAILS = {};
-
-        socket.on('auth_res', (data) => {
-            if (data.success) {
-                currentUser = data.user;
-                PACKS = data.packs;
-                BLOOK_DETAILS = data.blookDetails;
-                launchSystem();
-            } else {
-                alert(data.msg);
-            }
-        });
-
-        socket.on('pack_reward_reveal', (blookName) => {
-            revealReward(blookName);
-        });
-
-        socket.on('force_sync', (userData) => {
-            currentUser = userData;
-            syncUI();
-        });
-
-        socket.on('sys_err', (msg) => {
-            alert(msg);
-        });
-
-        socket.on('sys_msg', (msg) => {
-            addChatMessage('SYSTEM', msg, 'admin');
-        });
-
-        socket.on('sync_auctions', (auctions) => {
-            renderAuctions(auctions);
-        });
-
-        socket.on('sync_trades', (trades) => {
-            renderTrades(trades);
-        });
-
-        socket.on('receive_chat', (msg) => {
-            addChatMessage(msg.username, msg.text, msg.rank);
-        });
-
-        socket.on('wheel_success', (prize) => {
-            alert(`Won ${prize} coins!`);
-            syncUI();
-        });
-
-        socket.on('merge_success', (data) => {
-            alert(`Merged ${data.original} into ${data.reward}!`);
-            syncUI();
-        });
-
-        function executeAuth(type) {
-            const u = document.getElementById('user-in').value.trim();
-            const p = document.getElementById('pass-in').value.trim();
-            if(!u || !p) return alert("Please fill out your username and password!");
-            
-            socket.emit('auth', { username: u, password: p, action: type });
-        }
-
-        function launchSystem() {
-            document.getElementById('auth-screen').style.display = 'none';
-            document.getElementById('sidebar').style.display = 'flex';
-            document.getElementById('main-content').style.display = 'block';
-            
-            if(currentUser.rank === 'admin' || currentUser.rank === 'mod') {
-                document.getElementById('admin-panel').style.display = 'block';
-            }
-            
-            syncUI();
-            renderPacks();
-        }
-
-        function syncUI() {
-            document.getElementById('sidebar-profile-tag').innerText = currentUser.username + ' 👑';
-            document.getElementById('sidebar-coins-count').innerText = currentUser.coins;
-            renderCollection();
-        }
-
-        function renderPacks() {
-            const container = document.getElementById('market-cards-container');
-            container.innerHTML = '';
-            for(let packName in PACKS) {
-                const pack = PACKS[packName];
-                let rates = '';
-                pack.blooks.forEach(b => {
-                    const detail = BLOOK_DETAILS[b] || { emoji: '📦', rate: 0 };
-                    rates += `<div class="rate-row"><span>${detail.emoji} ${b}</span><span>${detail.rate}%</span></div>`;
-                });
-                container.innerHTML += `
-                    <div class="pack-card" onclick="buyPack('${packName}')">
-                        <div style="font-size:50px; margin-bottom:10px;">${pack.emoji}</div>
-                        <h3>${packName}</h3>
-                        <p style="color:#ffcc00; font-weight:900; font-size:18px;">${pack.cost} 🪙</p>
-                        <div class="rates-list">${rates}</div>
-                    </div>
-                `;
-            }
-        }
-
-        function renderCollection() {
-            const container = document.getElementById('collection-grid-container');
-            container.innerHTML = '';
-            const counts = {};
-            currentUser.blooks.forEach(b => counts[b] = (counts[b] || 0) + 1);
-            
-            for(let blookName in counts) {
-                const detail = BLOOK_DETAILS[blookName] || { emoji: '📦', rarity: 'common' };
-                container.innerHTML += `
-                    <div class="blook-card">
-                        <div class="blook-avatar">${detail.emoji}</div>
-                        <h3>${blookName}</h3>
-                        <span class="rarity ${detail.rarity}">${detail.rarity.toUpperCase()}</span>
-                        <div class="blook-count">${counts[blookName]}</div>
-                    </div>
-                `;
-            }
-        }
-
-        function renderAuctions(auctions) {
-            const container = document.getElementById('listings-hook');
-            container.innerHTML = '';
-            auctions.forEach((auc) => {
-                const detail = BLOOK_DETAILS[auc.item] || { emoji: '📦' };
-                container.innerHTML += `
-                    <div class="auction-item">
-                        <span>${detail.emoji} ${auc.item} by ${auc.seller}</span>
-                        <span>${auc.cost} 🪙</span>
-                        <button class="btn-play" style="width:80px; padding:5px;" onclick="buyAuction('${auc.id}')">BUY</button>
-                    </div>
-                `;
-            });
-        }
-
-        function renderTrades(trades) {
-            // Trades rendering can be added to a separate tab if needed
-        }
-
-        function switchActiveView(view) {
-            document.querySelectorAll('.window').forEach(w => w.classList.remove('active'));
-            document.getElementById(view).classList.add('active');
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active-btn'));
-            document.getElementById(`btn-${view}`).classList.add('active-btn');
-        }
-
-        function buyPack(packName) {
-            socket.emit('buy_pack', packName);
-            document.getElementById('unbox-overlay').style.display = 'flex';
-            document.getElementById('pack-wrapper-node').classList.add('shake-loop');
-        }
-
-        function executeBurstSequence() {
-            document.getElementById('pack-wrapper-node').classList.remove('shake-loop');
-            document.getElementById('pack-wrapper-node').classList.add('burst-exit');
-            setTimeout(() => {
-                document.getElementById('pack-wrapper-node').classList.remove('burst-exit');
-                document.getElementById('pack-wrapper-node').style.display = 'none';
-            }, 400);
-        }
-
-        function revealReward(blookName) {
-            const blook = BLOOK_DETAILS[blookName] || { emoji: '📦', rarity: 'common' };
-            document.getElementById('reward-glyph').innerText = blook.emoji;
-            document.getElementById('reward-title').innerText = blookName;
-            document.getElementById('reward-tier-badge').innerText = blook.rarity.toUpperCase();
-            document.getElementById('reward-tier-badge').className = `rarity ${blook.rarity}`;
-            document.getElementById('reward-reveal-card').style.display = 'flex';
-        }
-
-        function closeRevealOverlay() {
-            document.getElementById('unbox-overlay').style.display = 'none';
-            document.getElementById('pack-wrapper-node').style.display = 'flex';
-            document.getElementById('reward-reveal-card').style.display = 'none';
-        }
-
-        function attemptChamberMerge() {
-            const name = document.getElementById('forge-blook-input').value.trim();
-            socket.emit('merge_blooks', name);
-        }
-
-        function postAuctionListing() {
-            const name = document.getElementById('auc-blook-name').value.trim();
-            const price = parseInt(document.getElementById('auc-token-price').value);
-            if(!name || !price) return alert("Fill out all fields!");
-            socket.emit('post_auction', { blookName: name, price });
-            document.getElementById('auc-blook-name').value = '';
-            document.getElementById('auc-token-price').value = '';
-        }
-
-        function buyAuction(auctionId) {
-            socket.emit('buy_auction', auctionId);
-        }
-
-        function sendChatMessage() {
-            const msg = document.getElementById('chat-entry-box').value.trim();
-            if(!msg) return;
-            socket.emit('send_chat', msg);
-            document.getElementById('chat-entry-box').value = '';
-        }
-
-        function addChatMessage(user, text, rank) {
-            const box = document.getElementById('chat-window-box');
-            const tag = rank === 'admin' ? '<span class="tag-staff">[ADMIN]</span> ' : rank === 'mod' ? '<span class="tag-mod">[MOD]</span> ' : '';
-            box.innerHTML += `<div class="chat-line">${tag}<strong>${user}:</strong> ${text}</div>`;
-            box.scrollTop = box.scrollHeight;
-        }
-
-        function executeWheelSpin() {
-            socket.emit('spin_wheel');
-        }
-
-        function executeAdminRankUpdate() {
-            const user = document.getElementById('adm-target-user').value.trim();
-            const role = document.getElementById('adm-role-select').value;
-            socket.emit('admin_action', { target: user, role });
-        }
-
-        function executeAdminAssetInjection() {
-            const blook = document.getElementById('adm-blook').value.trim();
-            const coins = parseInt(document.getElementById('adm-coins').value) || 0;
-            socket.emit('admin_action', { target: currentUser.username, blook, coins });
-        }
-
-        function terminateSession() {
-            currentUser = null;
-            document.getElementById('auth-screen').style.display = 'flex';
-            document.getElementById('sidebar').style.display = 'none';
-            document.getElementById('main-content').style.display = 'none';
-        }
-
-        // Initialize on load
-        window.addEventListener('load', () => {
-            document.getElementById('user-in').focus();
-        });
-    </script>
+    <script src="js/config.js"></script>
+    <script src="js/gameState.js"></script>
+    <script src="js/socketManager.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
 </body>
 </html>
