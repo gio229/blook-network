@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blook Labs Deluxe - Master Platform</title>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
         * { 
             box-sizing: border-box; 
@@ -449,8 +450,8 @@
 
     <!-- Always-Working Accounts Gate Selector Panel -->
     <div id="auth-screen">
-        <h1 class="brand">BLOOK LABS V7</h1>
-        <p style="color:#b399ff; font-weight:bold;">Complete Simulation Suite Engine</p>
+        <h1 class="brand">BLOOK LABS V7 ONLINE</h1>
+        <p style="color:#b399ff; font-weight:bold;">Live Multiplayer Simulation Suite Engine</p>
         <div class="auth-container">
             <input type="text" id="user-in" placeholder="Account Username...">
             <input type="password" id="pass-in" placeholder="Account Password...">
@@ -558,85 +559,69 @@
     </div>
 
     <script>
-        // Exact Pull odds configured identically
-        const BLOOK_DETAILS = {
-            'Knight': { emoji: '⚔️', rarity: 'common', rate: 50 }, 
-            'Queen': { emoji: '👸', rarity: 'rare', rate: 25 }, 
-            'King': { emoji: '👑', rarity: 'rare', rate: 15 }, 
-            'Wizard': { emoji: '🧙', rarity: 'epic', rate: 10 },
-            'Dragon': { emoji: '🐉', rarity: 'legendary', rate: 0 },
-            'Meteor': { emoji: '☄️', rarity: 'common', rate: 60 }, 
-            'Astronaut': { emoji: '👨‍🚀', rarity: 'rare', rate: 25 }, 
-            'Alien': { emoji: '👽', rarity: 'epic', rate: 12 }, 
-            'Star': { emoji: '⭐', rarity: 'legendary', rate: 3 },
-            'Ninja': { emoji: '🥷', rarity: 'common', rate: 65 }, 
-            'Samurai': { emoji: '👺', rarity: 'rare', rate: 25 }, 
-            'Titan': { emoji: '👹', rarity: 'legendary', rate: 10 },
-            'Hacker Cat': { emoji: '🐱‍💻', rarity: 'rare', rate: 50 }, 
-            'Cyborg': { emoji: '🦿', rarity: 'epic', rate: 35 }, 
-            'AI Matrix': { emoji: '💾', rarity: 'epic', rate: 12 }, 
-            'Cyber Core': { emoji: '⚙️', rarity: 'legendary', rate: 3 },
-            'Monkey': { emoji: '🐒', rarity: 'common', rate: 50 }, 
-            'Zebra': { emoji: '🦓', rarity: 'rare', rate: 30 }, 
-            'Lion': { emoji: '🦁', rarity: 'epic', rate: 15 }, 
-            'Elephant': { emoji: '🐘', rarity: 'legendary', rate: 5 },
-            'Goldfish': { emoji: '🐟', rarity: 'common', rate: 60 }, 
-            'Shark': { emoji: '🦈', rarity: 'epic', rate: 35 }, 
-            'Kraken': { emoji: '🦑', rarity: 'legendary', rate: 5 },
-            'Raptor': { emoji: '🦖', rarity: 'common', rate: 50 }, 
-            'T-Rex': { emoji: '🦕', rarity: 'epic', rate: 45 }, 
-            'Ankylosaurus': { emoji: '🐢', rarity: 'legendary', rate: 5 },
-            'Snowman': { emoji: '⛄', rarity: 'common', rate: 55 }, 
-            'Yeti': { emoji: '🦍', rarity: 'epic', rate: 40 }, 
-            'Frost King': { emoji: '🧊', rarity: 'legendary', rate: 5 },
-            'Rainbow Slime': { emoji: '🌈', rarity: 'chroma', rate: 45 }, 
-            'Neon Cat': { emoji: '🐱', rarity: 'chroma', rate: 40 }, 
-            'Void Overlord': { emoji: '🧿', rarity: 'chroma', rate: 15 }
-        };
-
-        const PACKS = {
-            Medieval: { cost: 20, emoji: '🛡️', blooks: ['Knight', 'Queen', 'King', 'Wizard', 'Dragon'] },
-            Space: { cost: 35, emoji: '🚀', blooks: ['Meteor', 'Astronaut', 'Alien', 'Star'] },
-            Anime: { cost: 50, emoji: '⛩️', blooks: ['Ninja', 'Samurai', 'Titan'] },
-            Cyberpunk: { cost: 65, emoji: '💾', blooks: ['Hacker Cat', 'Cyborg', 'AI Matrix', 'Cyber Core'] },
-            Safari: { cost: 80, emoji: '🦁', blooks: ['Monkey', 'Zebra', 'Lion', 'Elephant'] },
-            Aquatic: { cost: 100, emoji: '🐟', blooks: ['Goldfish', 'Shark', 'Kraken'] },
-            Dino: { cost: 120, emoji: '🦖', blooks: ['Raptor', 'T-Rex', 'Ankylosaurus'] },
-            Ice: { cost: 140, emoji: '❄️', blooks: ['Snowman', 'Yeti', 'Frost King'] },
-            Chroma: { cost: 250, emoji: '✨', blooks: ['Rainbow Slime', 'Neon Cat', 'Void Overlord'] }
-        };
-
-        const botMessages = ["Who wants to trade a Dragon?", "Just pulled a Neon Cat!! OMG", "Gio this layout is amazing", "Auction house values are dipping buy now!", "Check out the fusion laboratory!"];
-
+        // Socket.IO Connection
+        const socket = io();
         let currentUser = null;
         let selectedPackToOpen = null;
+        let PACKS = {};
+        let BLOOK_DETAILS = {};
 
-        function getDB() { return JSON.parse(localStorage.getItem('blook_master_db') || "{}"); }
-        function saveDB(db) { localStorage.setItem('blook_master_db', JSON.stringify(db)); }
-        function getAuctions() { return JSON.parse(localStorage.getItem('blook_auction_board') || "[]"); }
-        function saveAuctions(auc) { localStorage.setItem('blook_auction_board', JSON.stringify(auc)); }
+        socket.on('auth_res', (data) => {
+            if (data.success) {
+                currentUser = data.user;
+                PACKS = data.packs;
+                BLOOK_DETAILS = data.blookDetails;
+                launchSystem();
+            } else {
+                alert(data.msg);
+            }
+        });
+
+        socket.on('pack_reward_reveal', (blookName) => {
+            revealReward(blookName);
+        });
+
+        socket.on('force_sync', (userData) => {
+            currentUser = userData;
+            syncUI();
+        });
+
+        socket.on('sys_err', (msg) => {
+            alert(msg);
+        });
+
+        socket.on('sys_msg', (msg) => {
+            addChatMessage('SYSTEM', msg, 'admin');
+        });
+
+        socket.on('sync_auctions', (auctions) => {
+            renderAuctions(auctions);
+        });
+
+        socket.on('sync_trades', (trades) => {
+            renderTrades(trades);
+        });
+
+        socket.on('receive_chat', (msg) => {
+            addChatMessage(msg.username, msg.text, msg.rank);
+        });
+
+        socket.on('wheel_success', (prize) => {
+            alert(`Won ${prize} coins!`);
+            syncUI();
+        });
+
+        socket.on('merge_success', (data) => {
+            alert(`Merged ${data.original} into ${data.reward}!`);
+            syncUI();
+        });
 
         function executeAuth(type) {
             const u = document.getElementById('user-in').value.trim();
             const p = document.getElementById('pass-in').value.trim();
             if(!u || !p) return alert("Please fill out your username and password!");
-
-            const db = getDB();
-            const key = u.toLowerCase();
-
-            if (type === 'signup') {
-                if(db[key]) return alert("Username already exists!");
-                db[key] = { username: u, password: p, coins: 500, blooks: {}, lastWheel: 0, rank: (key === 'gio') ? 'admin' : 'user' };
-                saveDB(db);
-                alert("Profile built! Log In to open rooms.");
-                return;
-            }
-
-            if (type === 'login') {
-                if(!db[key] || db[key].password !== p) return alert("Wrong credentials validation mismatch!");
-                currentUser = db[key];
-                launchSystem();
-            }
+            
+            socket.emit('auth', { username: u, password: p, action: type });
         }
 
         function launchSystem() {
@@ -644,17 +629,18 @@
             document.getElementById('sidebar').style.display = 'flex';
             document.getElementById('main-content').style.display = 'block';
             
-            if(currentUser.rank === 'admin' || currentUser.rank === 'mod') document.getElementById('admin-panel').style.display = 'block';
+            if(currentUser.rank === 'admin' || currentUser.rank === 'mod') {
+                document.getElementById('admin-panel').style.display = 'block';
+            }
             
             syncUI();
             renderPacks();
-            renderAuctions();
-            startChatBot();
         }
 
         function syncUI() {
             document.getElementById('sidebar-profile-tag').innerText = currentUser.username + ' 👑';
             document.getElementById('sidebar-coins-count').innerText = currentUser.coins;
+            renderCollection();
         }
 
         function renderPacks() {
@@ -664,10 +650,11 @@
                 const pack = PACKS[packName];
                 let rates = '';
                 pack.blooks.forEach(b => {
-                    rates += `<div class="rate-row"><span>${BLOOK_DETAILS[b].emoji} ${b}</span><span>${BLOOK_DETAILS[b].rate}%</span></div>`;
+                    const detail = BLOOK_DETAILS[b] || { emoji: '📦', rate: 0 };
+                    rates += `<div class="rate-row"><span>${detail.emoji} ${b}</span><span>${detail.rate}%</span></div>`;
                 });
                 container.innerHTML += `
-                    <div class="pack-card" onclick="openPack('${packName}')">
+                    <div class="pack-card" onclick="buyPack('${packName}')">
                         <div style="font-size:50px; margin-bottom:10px;">${pack.emoji}</div>
                         <h3>${packName}</h3>
                         <p style="color:#ffcc00; font-weight:900; font-size:18px;">${pack.cost} 🪙</p>
@@ -677,26 +664,42 @@
             }
         }
 
-        function renderAuctions() {
-            const container = document.getElementById('listings-hook');
-            const auctions = getAuctions();
+        function renderCollection() {
+            const container = document.getElementById('collection-grid-container');
             container.innerHTML = '';
-            auctions.forEach((auc, idx) => {
+            const counts = {};
+            currentUser.blooks.forEach(b => counts[b] = (counts[b] || 0) + 1);
+            
+            for(let blookName in counts) {
+                const detail = BLOOK_DETAILS[blookName] || { emoji: '📦', rarity: 'common' };
+                container.innerHTML += `
+                    <div class="blook-card">
+                        <div class="blook-avatar">${detail.emoji}</div>
+                        <h3>${blookName}</h3>
+                        <span class="rarity ${detail.rarity}">${detail.rarity.toUpperCase()}</span>
+                        <div class="blook-count">${counts[blookName]}</div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderAuctions(auctions) {
+            const container = document.getElementById('listings-hook');
+            container.innerHTML = '';
+            auctions.forEach((auc) => {
+                const detail = BLOOK_DETAILS[auc.item] || { emoji: '📦' };
                 container.innerHTML += `
                     <div class="auction-item">
-                        <span>${auc.blook} ${BLOOK_DETAILS[auc.blook]?.emoji || '📦'}</span>
-                        <span>${auc.price} 🪙</span>
-                        <button class="btn-play" style="width:80px; padding:5px;" onclick="buyAuction(${idx})">BUY</button>
+                        <span>${detail.emoji} ${auc.item} by ${auc.seller}</span>
+                        <span>${auc.cost} 🪙</span>
+                        <button class="btn-play" style="width:80px; padding:5px;" onclick="buyAuction('${auc.id}')">BUY</button>
                     </div>
                 `;
             });
         }
 
-        function startChatBot() {
-            setInterval(() => {
-                const msg = botMessages[Math.floor(Math.random() * botMessages.length)];
-                addChatMessage('BOT', msg, 'mod');
-            }, 5000);
+        function renderTrades(trades) {
+            // Trades rendering can be added to a separate tab if needed
         }
 
         function switchActiveView(view) {
@@ -706,11 +709,8 @@
             document.getElementById(`btn-${view}`).classList.add('active-btn');
         }
 
-        function openPack(packName) {
-            selectedPackToOpen = packName;
-            const pack = PACKS[packName];
-            if(currentUser.coins < pack.cost) return alert("Not enough coins!");
-            currentUser.coins -= pack.cost;
+        function buyPack(packName) {
+            socket.emit('buy_pack', packName);
             document.getElementById('unbox-overlay').style.display = 'flex';
             document.getElementById('pack-wrapper-node').classList.add('shake-loop');
         }
@@ -721,122 +721,70 @@
             setTimeout(() => {
                 document.getElementById('pack-wrapper-node').classList.remove('burst-exit');
                 document.getElementById('pack-wrapper-node').style.display = 'none';
-                revealReward();
             }, 400);
         }
 
-        function revealReward() {
-            const pack = PACKS[selectedPackToOpen];
-            const blooks = pack.blooks;
-            const weights = blooks.map(b => BLOOK_DETAILS[b].rate);
-            const totalWeight = weights.reduce((a, b) => a + b, 0);
-            let random = Math.random() * totalWeight;
-            let selected = blooks[0];
-            for(let i = 0; i < blooks.length; i++) {
-                random -= weights[i];
-                if(random <= 0) { selected = blooks[i]; break; }
-            }
-            const blook = BLOOK_DETAILS[selected];
+        function revealReward(blookName) {
+            const blook = BLOOK_DETAILS[blookName] || { emoji: '📦', rarity: 'common' };
             document.getElementById('reward-glyph').innerText = blook.emoji;
-            document.getElementById('reward-title').innerText = selected;
+            document.getElementById('reward-title').innerText = blookName;
             document.getElementById('reward-tier-badge').innerText = blook.rarity.toUpperCase();
             document.getElementById('reward-tier-badge').className = `rarity ${blook.rarity}`;
             document.getElementById('reward-reveal-card').style.display = 'flex';
-            if(!currentUser.blooks[selected]) currentUser.blooks[selected] = 0;
-            currentUser.blooks[selected]++;
         }
 
         function closeRevealOverlay() {
             document.getElementById('unbox-overlay').style.display = 'none';
             document.getElementById('pack-wrapper-node').style.display = 'flex';
             document.getElementById('reward-reveal-card').style.display = 'none';
-            syncUI();
-            saveDB(getDB());
         }
 
         function attemptChamberMerge() {
             const name = document.getElementById('forge-blook-input').value.trim();
-            if(!currentUser.blooks[name] || currentUser.blooks[name] < 3) return alert("Need 3 copies!");
-            currentUser.blooks[name] -= 3;
-            const rarities = ['common', 'rare', 'epic', 'legendary'];
-            const current = BLOOK_DETAILS[name].rarity;
-            const idx = rarities.indexOf(current);
-            const newRarity = rarities[Math.min(idx + 1, 3)];
-            for(let b in BLOOK_DETAILS) {
-                if(BLOOK_DETAILS[b].rarity === newRarity) {
-                    currentUser.blooks[b] = (currentUser.blooks[b] || 0) + 1;
-                    alert(`Forged ${b}!`);
-                    break;
-                }
-            }
-            saveDB(getDB());
+            socket.emit('merge_blooks', name);
         }
 
         function postAuctionListing() {
             const name = document.getElementById('auc-blook-name').value.trim();
             const price = parseInt(document.getElementById('auc-token-price').value);
             if(!name || !price) return alert("Fill out all fields!");
-            const auctions = getAuctions();
-            auctions.push({ blook: name, price, seller: currentUser.username });
-            saveAuctions(auctions);
-            renderAuctions();
+            socket.emit('post_auction', { blookName: name, price });
+            document.getElementById('auc-blook-name').value = '';
+            document.getElementById('auc-token-price').value = '';
         }
 
-        function buyAuction(idx) {
-            const auctions = getAuctions();
-            const auc = auctions[idx];
-            if(currentUser.coins < auc.price) return alert("Not enough coins!");
-            currentUser.coins -= auc.price;
-            currentUser.blooks[auc.blook] = (currentUser.blooks[auc.blook] || 0) + 1;
-            auctions.splice(idx, 1);
-            saveAuctions(auctions);
-            saveDB(getDB());
-            renderAuctions();
+        function buyAuction(auctionId) {
+            socket.emit('buy_auction', auctionId);
         }
 
         function sendChatMessage() {
             const msg = document.getElementById('chat-entry-box').value.trim();
             if(!msg) return;
-            addChatMessage(currentUser.username, msg, currentUser.rank);
+            socket.emit('send_chat', msg);
             document.getElementById('chat-entry-box').value = '';
         }
 
         function addChatMessage(user, text, rank) {
             const box = document.getElementById('chat-window-box');
             const tag = rank === 'admin' ? '<span class="tag-staff">[ADMIN]</span> ' : rank === 'mod' ? '<span class="tag-mod">[MOD]</span> ' : '';
-            box.innerHTML += `<div class="chat-line">${tag}${user}: ${text}</div>`;
+            box.innerHTML += `<div class="chat-line">${tag}<strong>${user}:</strong> ${text}</div>`;
             box.scrollTop = box.scrollHeight;
         }
 
         function executeWheelSpin() {
-            const now = Date.now();
-            if(now - currentUser.lastWheel < 3600000) return alert("Try again in 1 hour!");
-            currentUser.lastWheel = now;
-            const reward = Math.floor(Math.random() * 100) + 50;
-            currentUser.coins += reward;
-            alert(`Won ${reward} coins!`);
-            syncUI();
-            saveDB(getDB());
+            socket.emit('spin_wheel');
         }
 
         function executeAdminRankUpdate() {
-            const user = document.getElementById('adm-target-user').value.toLowerCase().trim();
+            const user = document.getElementById('adm-target-user').value.trim();
             const role = document.getElementById('adm-role-select').value;
-            const db = getDB();
-            if(!db[user]) return alert("User not found!");
-            db[user].rank = role;
-            saveDB(db);
-            alert("Rank updated!");
+            socket.emit('admin_action', { target: user, role });
         }
 
         function executeAdminAssetInjection() {
             const blook = document.getElementById('adm-blook').value.trim();
-            const coins = parseInt(document.getElementById('adm-coins').value);
-            if(blook) currentUser.blooks[blook] = (currentUser.blooks[blook] || 0) + 1;
-            if(coins) currentUser.coins += coins;
-            syncUI();
-            saveDB(getDB());
-            alert("Assets injected!");
+            const coins = parseInt(document.getElementById('adm-coins').value) || 0;
+            socket.emit('admin_action', { target: currentUser.username, blook, coins });
         }
 
         function terminateSession() {
