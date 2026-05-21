@@ -1,232 +1,223 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Blook Network Deluxe Edition</title>
-    <script src="/socket.io/socket.io.js"></script>
-    <style>
-        @import url('https://googleapis.com');
-        * { box-sizing: border-box; font-family: 'Nunito', sans-serif; margin: 0; padding: 0; }
-        body { display: flex; background: #0b001a; color: white; height: 100vh; overflow: hidden; }
-        
-        #auth-screen { position: fixed; inset: 0; background: radial-gradient(#250040, #05000d); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 15px; }
-        .panel { background: rgba(255,255,255,0.05); padding: 30px; border-radius: 20px; width: 340px; display: flex; flex-direction: column; gap: 10px; border: 1px solid rgba(255,255,255,0.1); }
-        
-        input, select, button { padding: 14px; border-radius: 12px; border: none; font-size: 16px; font-weight: bold; width: 100%; text-align: center; }
-        input, select { background: rgba(255,255,255,0.08); color: white; outline: none; }
-        button { background: linear-gradient(135deg, #ff007f, #7700cc); color: white; cursor: pointer; }
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
 
-        #sidebar { width: 260px; background: rgba(255,255,255,0.02); padding: 20px; display: none; flex-direction: column; gap: 10px; border-right: 1px solid rgba(255,255,255,0.05); }
-        #main { flex: 1; padding: 30px; display: none; overflow-y: auto; }
-        .window { display: none; height: 100%; }
-        .active { display: block; }
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: "*" } });
 
-        .grid { display: flex; gap: 15px; flex-wrap: wrap; margin-top: 15px; }
-        
-        /* 9 Pack Market Cards layout configuration styling indicators */
-        .pack-card { background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.01) 100%); border: 1px solid rgba(255,255,255,0.1); border-radius: 18px; padding: 20px; width: 210px; text-align: center; cursor: pointer; }
-        .pack-card:hover { transform: translateY(-5px); border-color: #ffcc00; }
-        .rates-box { font-size: 11px; color: #b399ff; text-align: left; margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 5px; }
+app.use(express.static(path.join(__dirname, 'public')));
 
-        .blook-card { background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 15px; text-align: center; width: 140px; }
-        
-        #chat-box { height: 70%; background: rgba(0,0,0,0.3); border-radius: 12px; padding: 15px; overflow-y: auto; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05); }
-        .chat-row { margin-bottom: 8px; font-size: 15px; }
-        .admin { color: #ff0055; font-weight: 900; }
-        .mod { color: #00bfff; font-weight: 900; }
-        
-        .trade-row { display: flex; justify-content: space-between; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 10px; margin-bottom: 8px; align-items: center; }
-        #admin-panel { border: 2px dashed #ff0055; padding: 15px; border-radius: 15px; margin-top: 20px; display: none; }
-    </style>
-</head>
-<body>
+// Persistent State Repositories
+const users = {}; 
+const auctions = []; 
 
-    <div id="auth-screen">
-        <h1 style="font-family:'Fredoka One'; color:#ffcc00; font-size:40px;">BLOOK NET</h1>
-        <div class="panel">
-            <input type="text" id="user-in" placeholder="Username">
-            <input type="password" id="pass-in" placeholder="Password">
-            <button onclick="auth('login')">Sign In</button>
-            <button onclick="auth('signup')" style="background:#00cc66;">Register</button>
-        </div>
-    </div>
+const BLOOK_DETAILS = {
+    'Knight': { emoji: '⚔️', rarity: 'common', rate: 50 }, 'Queen': { emoji: '👸', rarity: 'rare', rate: 25 }, 'King': { emoji: '👑', rarity: 'rare', rate: 15 }, 'Wizard': { emoji: '🧙', rarity: 'epic', rate: 8.5 }, 'Dragon': { emoji: '🐉', rarity: 'legendary', rate: 1.5 },
+    'Meteor': { emoji: '☄️', rarity: 'common', rate: 60 }, 'Astronaut': { emoji: '👨‍🚀', rarity: 'rare', rate: 25 }, 'Alien': { emoji: '👽', rarity: 'epic', rate: 13 }, 'Star': { emoji: '⭐', rarity: 'legendary', rate: 2 },
+    'Ninja': { emoji: '🥷', rarity: 'common', rate: 70 }, 'Samurai': { emoji: '👺', rarity: 'rare', rate: 24 }, 'Titan': { emoji: '👹', rarity: 'legendary', rate: 6 },
+    'Hacker Cat': { emoji: '💻', rarity: 'rare', rate: 40 }, 'Cyborg': { emoji: '🦿', rarity: 'epic', rate: 30 }, 'AI Matrix': { emoji: '💾', rarity: 'epic', rate: 20 }, 'Cyber Core': { emoji: '🔮', rarity: 'legendary', rate: 10 },
+    'Monkey': { emoji: '🐒', rarity: 'common', rate: 40 }, 'Zebra': { emoji: '🦓', rarity: 'rare', rate: 30 }, 'Lion': { emoji: '🦁', rarity: 'epic', rate: 20 }, 'Elephant': { emoji: '🐘', rarity: 'legendary', rate: 10 },
+    'Goldfish': { emoji: '🐟', rarity: 'common', rate: 50 }, 'Shark': { emoji: '🦈', rarity: 'epic', rate: 40 }, 'Kraken': { emoji: '🐙', rarity: 'legendary', rate: 10 },
+    'Raptor': { emoji: '🦖', rarity: 'common', rate: 50 }, 'T-Rex': { emoji: '🦖', rarity: 'epic', rate: 40 }, 'Ankylosaurus': { emoji: '🦕', rarity: 'legendary', rate: 10 },
+    'Snowman': { emoji: '⛄', rarity: 'common', rate: 50 }, 'Yeti': { emoji: '🦍', rarity: 'epic', rate: 40 }, 'Frost King': { emoji: '❄️', rarity: 'legendary', rate: 10 },
+    'Rainbow Slime': { emoji: '🌈', rarity: 'chroma', rate: 40 }, 'Neon Cat': { emoji: '🐱', rarity: 'chroma', rate: 40 }, 'Void Overlord': { emoji: '🧿', rarity: 'chroma', rate: 20 },
+    'Excalibur Knight': { emoji: '🗡️', rarity: 'chroma', rate: 0 }, 'Nebula Overlord': { emoji: '🌌', rarity: 'chroma', rate: 0 }, 'Shogun Ronin': { emoji: '🎭', rarity: 'chroma', rate: 0 }
+};
 
-    <div id="sidebar">
-        <h2 id="display-name" style="color:#ffcc00;">User</h2>
-        <div style="font-size:20px; margin: 10px 0;">🪙 <span id="display-coins">0</span></div>
-        <button onclick="switchView('market')">🛒 Market Packs</button>
-        <button onclick="switchView('inventory')">🎒 Collection</button>
-        <button onclick="switchView('chat')">💬 Live Chat</button>
-        <button onclick="switchView('trading')">🤝 Trading Board</button>
-    </div>
+const PACKS = {
+    Medieval: { cost: 20, emoji: '🛡️', blooks: ['Knight', 'Queen', 'King', 'Wizard', 'Dragon'] },
+    Space: { cost: 35, emoji: '🚀', blooks: ['Meteor', 'Astronaut', 'Alien', 'Star'] },
+    Anime: { cost: 50, emoji: '⛩️', blooks: ['Ninja', 'Samurai', 'Titan'] },
+    Cyberpunk: { cost: 65, emoji: '💾', blooks: ['Hacker Cat', 'Cyborg', 'AI Matrix', 'Cyber Core'] },
+    Safari: { cost: 80, emoji: '🦁', blooks: ['Monkey', 'Zebra', 'Lion', 'Elephant'] },
+    Aquatic: { cost: 100, emoji: '🐟', blooks: ['Goldfish', 'Shark', 'Kraken'] },
+    Dino: { cost: 120, emoji: '🦖', blooks: ['Raptor', 'T-Rex', 'Ankylosaurus'] },
+    Ice: { cost: 140, emoji: '❄️', blooks: ['Snowman', 'Yeti', 'Frost King'] },
+    Chroma: { cost: 250, emoji: '✨', blooks: ['Rainbow Slime', 'Neon Cat', 'Void Overlord'] }
+};
 
-    <div id="main">
-        <!-- Upgraded 9 Pack Market Window Frame -->
-        <div id="market" class="window active">
-            <h1>The Blook Market</h1>
-            <p style="color:#b399ff; margin-bottom:15px;">Exchange tokens for mystery crates</p>
-            <div class="grid" id="market-grid"></div>
-        </div>
+function getLeaderboard() {
+    return Object.values(users)
+        .map(u => ({ username: u.username, coins: u.coins, blooksCount: u.blooks.length, rank: u.rank }))
+        .sort((a, b) => b.coins - a.coins)
+        .slice(0, 10);
+}
 
-        <div id="inventory" class="window">
-            <h1>My Collection</h1>
-            <div class="grid" id="inv-grid"></div>
-        </div>
+io.on('connection', (socket) => {
+    let sessionUser = null;
 
-        <div id="chat" class="window">
-            <h1>Global Live Lobby Chat</h1>
-            <div id="chat-box"></div>
-            <div style="display:flex; gap:10px;">
-                <input type="text" id="chat-msg" placeholder="Type a message to the world...">
-                <button onclick="sendChat()" style="width:120px;">Send</button>
-            </div>
-        </div>
+    socket.on('auth', ({ username, password, action }) => {
+        const key = username.toLowerCase().trim();
+        if (!username || !password) return socket.emit('auth_res', { success: false, msg: 'Please provide all information.' });
 
-        <div id="trading" class="window">
-            <h1>Global Trading System</h1>
-            <div style="display:flex; gap:10px; margin: 15px 0;">
-                <input type="text" id="trade-item-in" placeholder="Enter Blook name to swap...">
-                <button onclick="postTrade()" style="width:180px;">Post Offer</button>
-            </div>
-            <div id="trade-board"></div>
-        </div>
-
-        <div id="admin-panel">
-            <h3 style="color:#ff0055; margin-bottom:10px;">👑 Rank & Asset Promotion Console</h3>
-            <div style="display:flex; gap:10px; margin-bottom:10px;">
-                <input type="text" id="adm-target" placeholder="Player Name">
-                <select id="adm-role"><option value="admin">Admin</option><option value="mod">Moderator</option><option value="user">User</option></select>
-                <button onclick="submitAdmin(true)">Apply Rank</button>
-            </div>
-            <div style="display:flex; gap:10px;">
-                <input type="text" id="adm-blook" placeholder="Blook Name">
-                <input type="number" id="adm-coins" placeholder="Coins">
-                <button onclick="submitAdmin(false)">Inject Assets</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const socket = io();
-        let clientUser = null;
-
-        // Visual layout rates matching database drops
-        const RATES_MAP = {
-            'Knight': '50%', 'Queen': '25%', 'King': '15%', 'Wizard': '8%', 'Dragon': '2%',
-            'Meteor': '50%', 'Astronaut': '30%', 'Alien': '15%', 'Star': '5%',
-            'Ninja': '60%', 'Samurai': '30%', 'Titan': '10%',
-            'Hacker Cat': '40%', 'Cyborg': '30%', 'AI Matrix': '20%', 'Cyber Core': '10%',
-            'Monkey': '40%', 'Zebra': '30%', 'Lion': '20%', 'Elephant': '10%',
-            'Goldfish': '50%', 'Shark': '40%', 'Kraken': '10%',
-            'Raptor': '50%', 'T-Rex': '40%', 'Ankylosaurus': '10%',
-            'Snowman': '50%', 'Yeti': '40%', 'Frost King': '10%',
-            'Rainbow Slime': '40%', 'Neon Cat': '40%', 'Void Overlord': '20%'
-        };
-
-        function auth(action) {
-            const username = document.getElementById('user-in').value;
-            const password = document.getElementById('pass-in').value;
-            if(username && password) socket.emit('auth', { username, password, action });
+        if (action === 'signup') {
+            if (users[key]) return socket.emit('auth_res', { success: false, msg: 'Username already registered.' });
+            users[key] = {
+                username, password, coins: 1000, blooks: ['Knight', 'Knight', 'Meteor', 'Meteor'], lastWheel: 0, rank: (key === 'gio') ? 'admin' : 'user'
+            };
         }
 
-        socket.on('auth_res', (res) => {
-            if(!res.success) return alert(res.msg);
-            clientUser = res.user;
-            document.getElementById('auth-screen').style.display = 'none';
-            document.getElementById('sidebar').style.display = 'flex';
-            document.getElementById('main').style.display = 'block';
-            
-            buildMarketGrid(res.packs);
-            syncUI();
-        });
+        const account = users[key];
+        if (!account || account.password !== password) return socket.emit('auth_res', { success: false, msg: 'Invalid verification details.' });
 
-        socket.on('force_sync', (freshUser) => { clientUser = freshUser; syncUI(); });
+        sessionUser = account;
+        socket.join('global_lobby');
+        socket.emit('auth_res', { success: true, user: sessionUser, packs: PACKS, blookDetails: BLOOK_DETAILS });
+        io.to('global_lobby').emit('sys_msg', `⚡ ${sessionUser.username} connected to the system core.`);
+        io.emit('sync_leaderboard', getLeaderboard());
+        socket.emit('sync_auctions', auctions);
+    });
 
-        function buildMarketGrid(packs) {
-            const grid = document.getElementById('market-grid');
-            grid.innerHTML = '';
-            for(let key in packs) {
-                let listHTML = '';
-                packs[key].blooks.forEach(b => {
-                    listHTML += `<div>• ${b} (${RATES_MAP[b] || '10%'})</div>`;
-                });
+    socket.on('buy_pack', (packName) => {
+        if (!sessionUser || !PACKS[packName]) return;
+        const pack = PACKS[packName];
+        if (sessionUser.coins < pack.cost) return socket.emit('sys_err', "Insufficient coin balance!");
 
-                grid.innerHTML += `
-                    <div class="pack-card" onclick="socket.emit('buy_pack', '${key}')">
-                        <div style="font-size:40px; margin-bottom:5px;">${packs[key].emoji}</div>
-                        <h3>${key}</h3>
-                        <p style="color:#ffd700;">🪙 ${packs[key].cost}</p>
-                        <div class="rates-box">${listHTML}</div>
-                    </div>`;
+        sessionUser.coins -= pack.cost;
+        
+        // Exact percentage weighted drop calculation logic
+        const rand = Math.random() * 100;
+        let cumulative = 0;
+        let reward = pack.blooks[0];
+        
+        for (let b of pack.blooks) {
+            cumulative += BLOOK_DETAILS[b].rate;
+            if (rand <= cumulative) {
+                reward = b;
+                break;
             }
         }
 
-        function syncUI() {
-            let tag = clientUser.username;
-            if(clientUser.rank === 'admin') tag += ' <span class="admin">[ADMIN]</span>';
-            if(clientUser.rank === 'mod') tag += ' <span class="mod">[MOD]</span>';
-            
-            document.getElementById('display-name').innerHTML = tag;
-            document.getElementById('display-coins').innerText = clientUser.coins;
-            
-            const grid = document.getElementById('inv-grid');
-            grid.innerHTML = '';
-            clientUser.blooks.forEach(b => {
-                grid.innerHTML += `<div class="blook-card"><div style="font-size:35px;">📦</div><div>${b}</div></div>`;
-            });
+        sessionUser.blooks.push(reward);
+        socket.emit('unbox_reveal', reward);
+        socket.emit('force_sync', sessionUser);
+        io.emit('sync_leaderboard', getLeaderboard());
+    });
 
-            document.getElementById('admin-panel').style.display = (clientUser.rank === 'admin' || clientUser.rank === 'mod') ? 'block' : 'none';
+    socket.on('spin_wheel', () => {
+        if (!sessionUser) return;
+        const now = Date.now();
+        if (now - sessionUser.lastWheel < 3600000) {
+            const rem = Math.ceil((3600000 - (now - sessionUser.lastWheel)) / 60000);
+            return socket.emit('sys_err', `Wheel cooling down! Wait ${rem} minutes.`);
+        }
+        const prize = Math.floor(Math.random() * 400) + 100;
+        sessionUser.coins += prize;
+        sessionUser.lastWheel = now;
+        socket.emit('wheel_success', prize);
+        socket.emit('force_sync', sessionUser);
+        io.emit('sync_leaderboard', getLeaderboard());
+    });
+
+    socket.on('merge_blooks', (blookName) => {
+        if (!sessionUser) return;
+        const occurrences = sessionUser.blooks.filter(b => b === blookName).length;
+        if (occurrences < 2) return socket.emit('sys_err', "You need at least 2 duplicates of this Blook to merge!");
+
+        // Remove 2 copies
+        sessionUser.blooks.splice(sessionUser.blooks.indexOf(blookName), 1);
+        sessionUser.blooks.splice(sessionUser.blooks.indexOf(blookName), 1);
+
+        // Determine upgrade paths
+        const currentTier = BLOOK_DETAILS[blookName].rarity;
+        let finalReward = blookName;
+        
+        const upgradePools = {
+            'common': ['Queen', 'King', 'Astronaut', 'Samurai', 'Zebra'],
+            'rare': ['Wizard', 'UFO', 'Mech Robot', 'Cyborg', 'Lion'],
+            'epic': ['Dragon', 'Star', 'Titan Creature', 'Cyber Core', 'Elephant'],
+            'legendary': ['Rainbow Slime', 'Neon Cat', 'Void Overlord'],
+            'chroma': ['Excalibur Knight', 'Nebula Overlord', 'Shogun Ronin']
+        };
+
+        const currentPool = upgradePools[currentTier] || upgradePools['common'];
+        finalReward = currentPool[Math.floor(Math.random() * currentPool.length)];
+        
+        sessionUser.blooks.push(finalReward);
+        socket.emit('merge_reveal', finalReward);
+        socket.emit('force_sync', sessionUser);
+    });
+
+    socket.on('list_auction', ({ blook, price }) => {
+        if (!sessionUser || !sessionUser.blooks.includes(blook) || price <= 0) return;
+        
+        sessionUser.blooks.splice(sessionUser.blooks.indexOf(blook), 1);
+        const auctionItem = {
+            id: Date.now().toString(), seller: sessionUser.username, blook, currentBid: parseInt(price), highestBidder: 'No bids yet'
+        };
+        auctions.push(auctionItem);
+        io.emit('sync_auctions', auctions);
+        socket.emit('force_sync', sessionUser);
+    });
+
+    socket.on('place_bid', ({ auctionId, bidAmount }) => {
+        if (!sessionUser) return;
+        const auc = auctions.find(a => a.id === auctionId);
+        if (!auc || bidAmount <= auc.currentBid || sessionUser.coins < bidAmount) return socket.emit('sys_err', "Invalid bid submission status.");
+        if (auc.seller === sessionUser.username) return socket.emit('sys_err', "You cannot buy your own auction items!");
+
+        // Refund previous bidder
+        if (auc.highestBidder !== 'No bids yet') {
+            const prevBidderKey = auc.highestBidder.toLowerCase();
+            if (users[prevBidderKey]) users[prevBidderKey].coins += auc.currentBid;
         }
 
-        function switchView(id) {
-            document.querySelectorAll('.window').forEach(w => w.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
+        sessionUser.coins -= bidAmount;
+        auc.currentBid = bidAmount;
+        auc.highestBidder = sessionUser.username;
+        
+        io.emit('sync_auctions', auctions);
+        socket.emit('force_sync', sessionUser);
+    });
+
+    socket.on('collect_auction', (auctionId) => {
+        if (!sessionUser) return;
+        const index = auctions.findIndex(a => a.id === auctionId);
+        if (index === -1) return;
+        const auc = auctions[index];
+
+        if (sessionUser.username === auc.seller) {
+            if (auc.highestBidder === 'No bids yet') {
+                sessionUser.blooks.push(auc.blook);
+            } else {
+                sessionUser.coins += auc.currentBid;
+            }
+            auctions.splice(index, 1);
+        } else if (sessionUser.username === auc.highestBidder) {
+            sessionUser.blooks.push(auc.blook);
+            auctions.splice(index, 1);
+        } else {
+            return;
         }
 
-        function sendChat() {
-            const msg = document.getElementById('chat-msg').value;
-            if(msg.trim()) { socket.emit('send_chat', msg); document.getElementById('chat-msg').value = ''; }
+        io.emit('sync_auctions', auctions);
+        io.emit('force_sync_all'); 
+        io.emit('sync_leaderboard', getLeaderboard());
+    });
+
+    socket.on('send_chat', (text) => {
+        if (!sessionUser) return;
+        io.to('global_lobby').emit('receive_chat', { username: sessionUser.username, rank: sessionUser.rank, text: text.trim() });
+    });
+
+    // Master Staff Console Command Injections
+    socket.on('admin_action', ({ target, role, coins, blook }) => {
+        if (!sessionUser || (sessionUser.rank !== 'admin' && sessionUser.rank !== 'mod')) return;
+        const targetKey = target.toLowerCase().trim();
+        const player = users[targetKey];
+
+        if (player) {
+            if (role) player.rank = role;
+            if (coins) player.coins += parseInt(coins);
+            if (blook) player.blooks.push(blook);
+            io.emit('sys_msg', `🛠️ Infrastructure core updated successfully for account alignment: ${player.username}`);
+            io.emit('sync_leaderboard', getLeaderboard());
         }
+    });
 
-        socket.on('receive_chat', (data) => {
-            const box = document.getElementById('chat-box');
-            let badge = data.rank !== 'user' ? `<span class="${data.rank}">[${data.rank.toUpperCase()}]</span> ` : '';
-            box.innerHTML += `<div class="chat-row"><b>${badge}${data.username}:</b> ${data.text}</div>`;
-            box.scrollTop = box.scrollHeight;
-        });
+    socket.on('request_force_sync', () => { if(sessionUser) socket.emit('force_sync', users[sessionUser.username.toLowerCase()]); });
+});
 
-        socket.on('sys_msg', (txt) => {
-            document.getElementById('chat-box').innerHTML += `<div class="chat-row" style="color:#00cc66;"><i>${txt}</i></div>`;
-        });
-
-        function postTrade() {
-            const item = document.getElementById('trade-item-in').value;
-            if(clientUser.blooks.includes(item)) {
-                socket.emit('post_trade', item);
-                document.getElementById('trade-item-in').value = '';
-            } else { alert("You don't own that Blook!"); }
-        }
-
-        socket.on('sync_trades', (list) => {
-            const board = document.getElementById('trade-board');
-            board.innerHTML = '';
-            list.forEach(t => {
-                board.innerHTML += `
-                    <div class="trade-row">
-                        <span><b>${t.sender}</b> is offering a 📦 <b>${t.item}</b></span>
-                        <button style="width:100px; padding:8px;" onclick="socket.emit('claim_trade', '${t.id}')">Claim</button>
-                    </div>`;
-            });
-        });
-
-        function submitAdmin(isRole) {
-            socket.emit('admin_action', {
-                target: document.getElementById('adm-target').value,
-                role: isRole ? document.getElementById('adm-role').value : null,
-                blook: !isRole ? document.getElementById('adm-blook').value : null,
-                coins: !isRole ? document.getElementById('adm-coins').value : null
-            });
-        }
-    </script>
-</body>
-</html>
+server.listen(3000, () => console.log('Blooket Core Active'));
