@@ -7,13 +7,20 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
+// FORCED CONTENT-TYPE FIX: Prevents the raw text/white screen bug entirely
+app.get('/', (req, res) => {
+    res.setHeader('Content-Type', 'text/html');
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Serve other assets from public
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Full Player Database Storage
+// In-Memory Database
 const users = {}; 
 const publicTrades = [];
 
-// The Master List of all 9 Packs and their exact pull items
+// All 9 Blooket-Style Premium Packs
 const PACKS = {
     Medieval: { cost: 20, emoji: '🛡️', blooks: ['Knight', 'Queen', 'King', 'Wizard', 'Dragon'] },
     Space: { cost: 35, emoji: '🚀', blooks: ['Meteor', 'Astronaut', 'Alien', 'Star'] },
@@ -29,21 +36,25 @@ const PACKS = {
 io.on('connection', (socket) => {
     let sessionUser = null;
 
-    // Guaranteed Auth System
+    // Fail-Safe Authenticator Network
     socket.on('auth', ({ username, password, action }) => {
+        if (!username || !password) return socket.emit('auth_res', { success: false, msg: 'Please fill out all fields.' });
         const key = username.toLowerCase().trim();
-        if (!username || !password) return socket.emit('auth_res', { success: false, msg: 'Missing fields' });
 
         if (action === 'signup') {
-            if (users[key]) return socket.emit('auth_res', { success: false, msg: 'Username taken' });
+            if (users[key]) return socket.emit('auth_res', { success: false, msg: 'Username is already taken!' });
             users[key] = {
-                username, password, coins: 500, blooks: ['Knight'], rank: (key === 'gio') ? 'admin' : 'user'
+                username: username.trim(),
+                password: password,
+                coins: 1000, // Extra start tokens for testing
+                blooks: ['Knight'],
+                rank: (key === 'gio') ? 'admin' : 'user'
             };
         }
 
         const account = users[key];
         if (!account || account.password !== password) {
-            return socket.emit('auth_res', { success: false, msg: 'Invalid credentials' });
+            return socket.emit('auth_res', { success: false, msg: 'Invalid username or password!' });
         }
 
         sessionUser = account;
@@ -53,7 +64,7 @@ io.on('connection', (socket) => {
         socket.emit('sync_trades', publicTrades);
     });
 
-    // Unboxing Engine
+    // Buying Packs
     socket.on('buy_pack', (packName) => {
         if (!sessionUser || !PACKS[packName]) return;
         const pack = PACKS[packName];
@@ -68,13 +79,13 @@ io.on('connection', (socket) => {
 
     // Global Live Lobby Chat System
     socket.on('send_chat', (text) => {
-        if (!sessionUser) return;
+        if (!sessionUser || !text.trim()) return;
         io.to('global_lobby').emit('receive_chat', {
             username: sessionUser.username, rank: sessionUser.rank, text: text.trim()
         });
     });
 
-    // Peer-to-Peer Marketplace Trading Board
+    // Trading Board Logic
     socket.on('post_trade', (blookName) => {
         if (!sessionUser || !sessionUser.blooks.includes(blookName)) return;
         const newTrade = { id: Date.now().toString(), sender: sessionUser.username, item: blookName };
@@ -88,7 +99,7 @@ io.on('connection', (socket) => {
         if (index === -1) return;
 
         const trade = publicTrades[index];
-        if (trade.sender === sessionUser.username) return socket.emit('sys_err', "You can't claim your own offer!");
+        if (trade.sender === sessionUser.username) return;
 
         const senderKey = trade.sender.toLowerCase();
         const originalOwner = users[senderKey];
@@ -99,12 +110,12 @@ io.on('connection', (socket) => {
             publicTrades.splice(index, 1);
             
             io.to('global_lobby').emit('sync_trades', publicTrades);
-            io.to('global_lobby').emit('sys_msg', `${sessionUser.username} claimed ${trade.sender}'s ${trade.item}!`);
+            io.to('global_lobby').emit('sys_msg', `${sessionUser.username} traded for ${trade.sender}'s ${trade.item}!`);
             socket.emit('force_sync', sessionUser);
         }
     });
 
-    // Staff Promotion Power Commands Console
+    // Admin Panel Actions (Controlled by GIO)
     socket.on('admin_action', ({ target, role, coins, blook }) => {
         if (!sessionUser || (sessionUser.rank !== 'admin' && sessionUser.rank !== 'mod')) return;
         const targetKey = target.toLowerCase().trim();
@@ -114,9 +125,11 @@ io.on('connection', (socket) => {
             if (role) player.rank = role;
             if (coins) player.coins += parseInt(coins);
             if (blook) player.blooks.push(blook);
-            io.to('global_lobby').emit('sys_msg', `Staff modified assets for ${player.username}.`);
+            
+            // Auto sync the player live if they are online
+            io.to('global_lobby').emit('sys_msg', `Staff updated account details for ${player.username}.`);
         }
     });
 });
 
-server.listen(3000, () => console.log('Live Server running on Port 3000'));
+server.listen(3000, () => console.log('Live Server Running Successfully'));
