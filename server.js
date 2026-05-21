@@ -13,15 +13,13 @@ const io = new Server(server, {
         origin: process.env.CORS_ORIGIN || "*",
         methods: ["GET", "POST"]
     },
-    maxHttpBufferSize: 1e6 // Prevent large payload attacks
+    maxHttpBufferSize: 1e6
 });
 
 // Security & Performance Middleware
 app.use(helmet());
 app.use(compression());
 app.use(express.json({ limit: '10kb' }));
-
-// Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
@@ -33,7 +31,7 @@ app.get('/', (req, res) => {
 const users = {}; 
 const publicTrades = [];
 const blackMarketAuctions = [];
-const activeSessions = new Map(); // Track active user sessions
+const activeSessions = new Map();
 
 // 9 Premium Packs & Complete Drop Rates
 const PACKS = {
@@ -48,7 +46,43 @@ const PACKS = {
     Chroma: { cost: 250, emoji: '✨', blooks: ['Rainbow Slime', 'Neon Cat', 'Void Overlord'] }
 };
 
-// Input Validation Helper
+// Blook Details with Rarity & Drop Rates
+const BLOOK_DETAILS = {
+    'Knight': { emoji: '⚔️', rarity: 'common', rate: 50 }, 
+    'Queen': { emoji: '👸', rarity: 'rare', rate: 25 }, 
+    'King': { emoji: '👑', rarity: 'rare', rate: 15 }, 
+    'Wizard': { emoji: '🧙', rarity: 'epic', rate: 10 },
+    'Dragon': { emoji: '🐉', rarity: 'legendary', rate: 0 },
+    'Meteor': { emoji: '☄️', rarity: 'common', rate: 60 }, 
+    'Astronaut': { emoji: '👨‍🚀', rarity: 'rare', rate: 25 }, 
+    'Alien': { emoji: '👽', rarity: 'epic', rate: 12 }, 
+    'Star': { emoji: '⭐', rarity: 'legendary', rate: 3 },
+    'Ninja': { emoji: '🥷', rarity: 'common', rate: 65 }, 
+    'Samurai': { emoji: '👺', rarity: 'rare', rate: 25 }, 
+    'Titan': { emoji: '👹', rarity: 'legendary', rate: 10 },
+    'Hacker Cat': { emoji: '🐱‍💻', rarity: 'rare', rate: 50 }, 
+    'Cyborg': { emoji: '🦿', rarity: 'epic', rate: 35 }, 
+    'AI Matrix': { emoji: '💾', rarity: 'epic', rate: 12 }, 
+    'Cyber Core': { emoji: '⚙️', rarity: 'legendary', rate: 3 },
+    'Monkey': { emoji: '🐒', rarity: 'common', rate: 50 }, 
+    'Zebra': { emoji: '🦓', rarity: 'rare', rate: 30 }, 
+    'Lion': { emoji: '🦁', rarity: 'epic', rate: 15 }, 
+    'Elephant': { emoji: '🐘', rarity: 'legendary', rate: 5 },
+    'Goldfish': { emoji: '🐟', rarity: 'common', rate: 60 }, 
+    'Shark': { emoji: '🦈', rarity: 'epic', rate: 35 }, 
+    'Kraken': { emoji: '🦑', rarity: 'legendary', rate: 5 },
+    'Raptor': { emoji: '🦖', rarity: 'common', rate: 50 }, 
+    'T-Rex': { emoji: '🦕', rarity: 'epic', rate: 45 }, 
+    'Ankylosaurus': { emoji: '🐢', rarity: 'legendary', rate: 5 },
+    'Snowman': { emoji: '⛄', rarity: 'common', rate: 55 }, 
+    'Yeti': { emoji: '🦍', rarity: 'epic', rate: 40 }, 
+    'Frost King': { emoji: '🧊', rarity: 'legendary', rate: 5 },
+    'Rainbow Slime': { emoji: '🌈', rarity: 'chroma', rate: 45 }, 
+    'Neon Cat': { emoji: '🐱', rarity: 'chroma', rate: 40 }, 
+    'Void Overlord': { emoji: '🧿', rarity: 'chroma', rate: 15 }
+};
+
+// Input Validation Helpers
 function validateUsername(username) {
     return typeof username === 'string' && username.trim().length > 0 && username.length <= 20;
 }
@@ -64,7 +98,6 @@ function sanitizeUsername(username) {
 io.on('connection', (socket) => {
     let sessionUser = null;
 
-    // Fail-Safe Authenticator
     socket.on('auth', ({ username, password, action }) => {
         try {
             if (!validateUsername(username) || !validatePassword(password)) {
@@ -96,7 +129,7 @@ io.on('connection', (socket) => {
             sessionUser = account;
             activeSessions.set(socket.id, sessionUser);
             socket.join('global_lobby');
-            socket.emit('auth_res', { success: true, user: sessionUser, packs: PACKS });
+            socket.emit('auth_res', { success: true, user: sessionUser, packs: PACKS, blookDetails: BLOOK_DETAILS });
             io.to('global_lobby').emit('sys_msg', `${sessionUser.username} connected.`);
             socket.emit('sync_trades', publicTrades);
             socket.emit('sync_auctions', blackMarketAuctions);
@@ -106,7 +139,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Buying & Opening Packs
     socket.on('buy_pack', (packName) => {
         try {
             if (!sessionUser || !PACKS[packName]) return;
@@ -116,11 +148,21 @@ io.on('connection', (socket) => {
             }
 
             sessionUser.coins -= pack.cost;
-            const reward = pack.blooks[Math.floor(Math.random() * pack.blooks.length)];
-            sessionUser.blooks.push(reward);
-
+            
+            // Weighted drop rates calculation
+            const blooks = pack.blooks;
+            const weights = blooks.map(b => BLOOK_DETAILS[b].rate);
+            const totalWeight = weights.reduce((a, b) => a + b, 0);
+            let random = Math.random() * totalWeight;
+            let selected = blooks[0];
+            for(let i = 0; i < blooks.length; i++) {
+                random -= weights[i];
+                if(random <= 0) { selected = blooks[i]; break; }
+            }
+            
+            sessionUser.blooks.push(selected);
             socket.emit('force_sync', sessionUser);
-            socket.emit('pack_reward_reveal', reward);
+            socket.emit('pack_reward_reveal', selected);
             io.to('global_lobby').emit('update_leaderboard', getLeaderboardData());
         } catch (err) {
             console.error('Pack purchase error:', err);
@@ -128,7 +170,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Hourly Token Wheel Engine
     socket.on('spin_wheel', () => {
         try {
             if (!sessionUser) return;
@@ -148,7 +189,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Duplicate Blook Merging Core Engine
     socket.on('merge_blooks', (blookName) => {
         try {
             if (!sessionUser || typeof blookName !== 'string') return;
@@ -185,7 +225,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Black Market Auction House Posting Engine
     socket.on('post_auction', ({ blookName, price }) => {
         try {
             const costPrice = parseInt(price);
@@ -210,7 +249,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Purchasing Items out of the Black Market Auction Board
     socket.on('buy_auction', (auctionId) => {
         try {
             if (!sessionUser) return;
@@ -244,7 +282,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Standard P2P Trade Gifting Engine
     socket.on('post_trade', (blookName) => {
         try {
             if (!sessionUser || !sessionUser.blooks.includes(blookName)) return;
@@ -290,11 +327,10 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Live Global Chat Module
     socket.on('send_chat', (text) => {
         try {
             if (!sessionUser || !text || typeof text !== 'string') return;
-            const cleanText = text.trim().substring(0, 500); // Limit message length
+            const cleanText = text.trim().substring(0, 500);
             if (!cleanText) return;
             
             io.to('global_lobby').emit('receive_chat', {
@@ -308,7 +344,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Enhanced Custom Master Admin Command Injections
     socket.on('admin_action', ({ target, role, coins, blook }) => {
         try {
             if (!sessionUser || (sessionUser.rank !== 'admin' && sessionUser.rank !== 'mod')) return;
@@ -340,7 +375,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Cleanup on disconnect
     socket.on('disconnect', () => {
         if (sessionUser) {
             io.to('global_lobby').emit('sys_msg', `${sessionUser.username} disconnected.`);
@@ -348,7 +382,6 @@ io.on('connection', (socket) => {
         activeSessions.delete(socket.id);
     });
 
-    // Error handling
     socket.on('error', (error) => {
         console.error('Socket error:', error);
     });
@@ -361,13 +394,11 @@ function getLeaderboardData() {
         .slice(0, 10);
 }
 
-// Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).json({ error: 'Internal server error' });
 });
 
-// Graceful shutdown
 process.on('SIGTERM', () => {
     console.log('SIGTERM signal received: closing HTTP server');
     server.close(() => {
@@ -377,4 +408,4 @@ process.on('SIGTERM', () => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Network Active on port ${PORT}`));
+server.listen(PORT, () => console.log(`🎮 Blook Network Active on port ${PORT}`));
